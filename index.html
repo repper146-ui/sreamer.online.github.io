@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Screamer</title>
+<title>Srims</title>
 <style>
 body{
   margin:0;
@@ -50,7 +50,7 @@ button:hover{background:#ffea66; transform:scale(1.05);}
   background-size:cover;
   background-position:center;
   cursor:pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, outline 0.2s ease;
 }
 .map:hover{transform:scale(1.05); box-shadow:0 0 10px #ffd400;}
 .map.banned{filter:grayscale(1);opacity:.3}
@@ -64,6 +64,11 @@ button:hover{background:#ffea66; transform:scale(1.05);}
   padding:4px 6px;
   border-radius:6px;
 }
+.players-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:6px;
+}
 .overlay{
   position:fixed; inset:0; background:rgba(0,0,0,0.95);
   padding:20px; overflow:auto; display:none; z-index:999; border-radius:12px;
@@ -73,19 +78,19 @@ button:hover{background:#ffea66; transform:scale(1.05);}
 <body>
 
 <header>
-<h1>SCREAMER</h1>
+<h1>SRIMS</h1>
 <button id="openBaseBtn">👥 Игроки</button>
 </header>
 
-<!-- БАЗА ПОСТОЯННЫХ ИГРОКОВ -->
+<!-- БАЗА ИГРОКОВ -->
 <div id="playerBase" class="overlay">
-<h2>База постоянных игроков</h2>
+<h2>Игроки</h2>
 <input id="baseName" placeholder="Имя игрока">
 <select id="baseClass">
-<option>Атака</option>
-<option>Рендж</option>
+<option>Атакующий</option>
+<option>Дальник</option>
 <option>Танк</option>
-<option>Хил</option>
+<option>Целитель</option>
 </select>
 <button id="addBaseBtn">Добавить игрока</button>
 <button id="closeBaseBtn">❌ Закрыть</button>
@@ -97,17 +102,17 @@ button:hover{background:#ffea66; transform:scale(1.05);}
 <h2>Добавление игроков в матч</h2>
 <input id="playerName" placeholder="Имя игрока">
 <div>
-<button data-class="Атака">Атака</button>
-<button data-class="Рендж">Рендж</button>
+<button data-class="Атакующий">Атакующий</button>
+<button data-class="Дальник">Дальник</button>
 <button data-class="Танк">Танк</button>
-<button data-class="Хил">Хил</button>
+<button data-class="Целитель">Целитель</button>
 </div>
-<ul id="players"></ul>
+<ul id="players" class="players-grid"></ul>
 </section>
 
 <!-- КОМАНДЫ -->
 <section>
-<h2>Команды</h2>
+<h2>Формирование Команд</h2>
 <button id="randTeamBtn">🎲 Рандом команд</button>
 <button id="customTeamBtn">✍ Своя команда</button>
 <div id="teams"></div>
@@ -115,7 +120,7 @@ button:hover{background:#ffea66; transform:scale(1.05);}
 
 <!-- РЕЖИМЫ -->
 <section>
-<h2>Режимы</h2>
+<h2>Выбор Режимов</h2>
 <div id="modes">
 <button>Сражения</button>
 <button>Бои за базы</button>
@@ -128,11 +133,10 @@ button:hover{background:#ffea66; transform:scale(1.05);}
 
 <!-- КАРТЫ -->
 <section>
-<h2>Карты</h2>
+<h2>Выбор Карты</h2>
 <div class="grid" id="maps"></div>
 <button id="randMapBtn">🎲 Случайная карта</button>
 <button id="resetMapsBtn">🔄 Сброс / новые карты</button>
-<h2 id="finalMap"></h2>
 </section>
 
 <!-- БАНЫ -->
@@ -152,12 +156,10 @@ button:hover{background:#ffea66; transform:scale(1.05);}
 <script>
 document.addEventListener("DOMContentLoaded",()=>{
 
-// ===== БАЗА ПОСТОЯННЫХ ИГРОКОВ =====
+// ===== БАЗА ИГРОКОВ =====
 let basePlayers=JSON.parse(localStorage.getItem("basePlayers")||"[]");
 const playerBase=document.getElementById("playerBase");
 const baseList=document.getElementById("baseList");
-
-function toggleBase(){playerBase.style.display = playerBase.style.display==="none"?"block":"none";}
 
 function renderBasePlayers(){
   baseList.innerHTML="";
@@ -180,11 +182,9 @@ function addBasePlayer(){
 }
 
 window.removeBasePlayer=i=>{
-  if(confirm(`Удалить ${basePlayers[i].name} из базы?`)){
-    basePlayers.splice(i,1);
-    localStorage.setItem("basePlayers",JSON.stringify(basePlayers));
-    renderBasePlayers();
-  }
+  basePlayers.splice(i,1);
+  localStorage.setItem("basePlayers",JSON.stringify(basePlayers));
+  renderBasePlayers();
 }
 
 window.addFromBase=i=>{
@@ -220,27 +220,53 @@ document.querySelectorAll('[data-class]').forEach(b=>{
 
 // ===== КОМАНДЫ =====
 const teams=document.getElementById("teams");
-function showTeams(a,b){
-  teams.innerHTML=`<b>Команда A</b><br>${a.map(p=>p.name).join("<br>")}
-  <hr>
-  <b>Команда B</b><br>${b.map(p=>p.name).join("<br>")}
-  `;
-}
 
+// Рандом команды
 document.getElementById("randTeamBtn").onclick=()=>{
-  if(players.length<8){alert("Нужно 8 игроков"); return;}
-  let classes=["Атака","Рендж","Танк","Хил"];
-  let A=[],B=[];
-  for(let c of classes){
-    let pool=players.filter(p=>p.cls===c).sort(()=>Math.random()-0.5);
-    if(pool.length<2){alert("Не хватает класса "+c); return;}
-    A.push(pool[0]); B.push(pool[1]);
+  if(players.length<4){alert("Нужно минимум 4 игрока"); return;}
+  let classes=["Атакующий","Дальник","Танк","Целитель"];
+  let classGroups={};
+  classes.forEach(c=>{
+    classGroups[c]=players.filter(p=>p.cls===c).sort(()=>Math.random()-0.5);
+  });
+
+  let teamCount=Math.floor(players.length/4);
+  if(teamCount===0) teamCount=1;
+  let allTeams=[];
+
+  for(let i=0;i<teamCount;i++){
+    let team=[];
+    classes.forEach(c=>{
+      if(classGroups[c].length>0) team.push(classGroups[c].shift());
+    });
+    allTeams.push(team);
   }
-  showTeams(A,B);
+
+  // Остатки
+  let leftovers=[];
+  classes.forEach(c=>{ leftovers=leftovers.concat(classGroups[c]); });
+  leftovers.sort(()=>Math.random()-0.5);
+  leftovers.forEach((p,i)=>{ allTeams[i%allTeams.length].push(p); });
+
+  // Вывод
+  teams.innerHTML="";
+  allTeams.forEach((team,i)=>{
+    teams.innerHTML+=`<b>Команда ${i+1}</b><br>${team.map(p=>`${p.name} — ${p.cls}`).join("<br>")}<hr>`;
+  });
 }
 
+// Своя команда
 document.getElementById("customTeamBtn").onclick=()=>{
-  showTeams(players.slice(0,4), players.slice(4,8));
+  if(players.length===0){ alert("Нет игроков!"); return; }
+  let teamCount=Math.ceil(players.length/4);
+  let allTeams=[];
+  for(let i=0;i<teamCount;i++){
+    allTeams.push(players.slice(i*4, i*4+4));
+  }
+  teams.innerHTML="";
+  allTeams.forEach((team,i)=>{
+    teams.innerHTML+=`<b>Команда ${i+1}</b><br>${team.map(p=>`${p.name} — ${p.cls}`).join("<br>")}<hr>`;
+  });
 }
 
 // ===== РЕЖИМЫ =====
@@ -252,7 +278,7 @@ document.querySelectorAll("#modes button").forEach(b=>{
     b.disabled=true; b.style.opacity=0.4; bannedModes++;
     if(bannedModes===2){
       let active=[...document.querySelectorAll("#modes button:not(:disabled)")];
-      modesResult.innerText="Играем: "+active.map(btn=>btn.innerText).join(", ");
+      modesResult.innerText="Выбраны: "+active.map(btn=>btn.innerText).join(", ");
     }
   });
 });
@@ -263,21 +289,19 @@ document.getElementById("resetModesBtn").addEventListener("click",()=>{
 
 // ===== КАРТЫ =====
 const mapContainer=document.getElementById("maps");
-const finalMap=document.getElementById("finalMap");
 let mapBans=0;
 let allMaps=[...Array(25)].map((_,i)=>`maps/${i+1}.png`);
 
 function loadMaps(){
   mapContainer.innerHTML="";
   mapBans=0;
-  finalMap.innerText="";
   let selected=[...allMaps].sort(()=>Math.random()-0.5).slice(0,5);
   selected.forEach(src=>{
     let d=document.createElement("div");
     d.className="map";
     d.style.backgroundImage=`url('${src}')`;
     d.onclick=()=>{
-      if(d.classList.contains("banned")||mapBans>=4)return;
+      if(d.classList.contains("banned")||d.classList.contains("selected")||mapBans>=4) return;
       d.classList.add("banned");
       mapBans++;
       checkMap();
@@ -288,20 +312,17 @@ function loadMaps(){
 
 function checkMap(){
   let active=[...document.querySelectorAll(".map:not(.banned)")];
+  // если осталась 1 карта — выделяем
   if(active.length===1){
     active[0].classList.add("selected");
-    finalMap.innerText="ИГРАЕМ НА ЭТОЙ КАРТЕ";
   }
 }
 
 document.getElementById("randMapBtn").onclick=()=>{
   mapBans=0;
-  finalMap.innerText="";
   document.querySelectorAll(".map").forEach(m=>m.classList.remove("banned","selected"));
-  // баним случайно 4 карты
   let mapsArr=[...document.querySelectorAll(".map")];
   mapsArr.sort(()=>Math.random()-0.5).slice(0,4).forEach(m=>m.classList.add("banned"));
-  mapBans=4;
   checkMap();
 };
 
